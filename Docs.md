@@ -35,7 +35,7 @@ pool_token: is a token that is deposited in a given pool.
 pool_token = Hash()
 ```
 
-pool_balance: pool_balance[pool_id] -> float
+pool_balance: pool_balance[pool_id] -> str
 pool_balance: is the total amount of a pool token remaining.
 
 ```python
@@ -60,7 +60,7 @@ pool_blacklist = Hash(default_value=False)
 open_pool_limit: limit a single address can claim from an open pool. Limit set by pool owner.
 
 ```python
-open_pool_limit = Hash(default_value=None)
+open_pool_limit = Hash(default_value=0)
 ```
 
 ### Create pool
@@ -77,7 +77,7 @@ pool_id will be ctx.caller + ":" + pool_name
 ### Deposit to pool
 
 ```python
-def deposit_to_pool(pool_id: str, amount: float):
+def deposit_to_pool(pool_id: str, amount: str):
 
 ```
 
@@ -86,13 +86,12 @@ Requires the token contract to support transfer_from approved by owner.
 
 ### Set allocation
 
-````python
+```python
 def set_allocation(pool_id: str, allocations: list):
-    ```
-````
+```
 
 Pool owner sets allocations for addresses for this pool.
-allocations: list of dicts {'address': addr_str, 'amount': float}
+allocations: list of dicts {'address': addr_str, 'amount': str}
 
 ### Pool owner blacklist
 
@@ -149,7 +148,7 @@ Get pool balance.
 ## Claim
 
 ````python
-def claim(pool_id: str, amount: float, to: str):
+def claim(pool_id: str, amount: str, to: str):
     ```
 ````
 
@@ -158,7 +157,7 @@ Claim from pool. Behavior depends on pool_mode: - "whitelist": must have an allo
 ### Withdraw from pool
 
 ```python
-def withdraw_from_pool(pool_id: str, amount: float):
+def withdraw_from_pool(pool_id: str, amount: str):
 ```
 
 Pool owner withdraws unclaimed tokens from pool back to themselves.
@@ -166,7 +165,7 @@ Pool owner withdraws unclaimed tokens from pool back to themselves.
 ### Set open pool limit
 
 ```python
-def set_open_pool_limit(pool_id: str, limit: float):
+def set_open_pool_limit(pool_id: str, limit: str):
 ```
 
 Limit a single address can claim from an open pool. Limit is set by pool owner.
@@ -220,3 +219,18 @@ Get effective allocation for an address in an "open" pool (the open pool limit) 
 ```python
 def get_effective_allocation(pool_id: str, address: str):
 ```
+
+### GUIDE
+
+## OPEN POOL
+
+STEP ONE: CREATE POOL
+pool_name: str, token_contract: str, mode: str
+pool_name: your pool name eg coolguy
+token_contract: the token's contract address which you want to add to the pool eg con_cool_guy
+mode: "open"
+
+STEP TWO: SET OPEN POOL LIMIT
+def set_open_pool_limit(pool_id: str, limit: str):
+pool_id: your pool id
+limit: Basically the max amount an address can claim. eg if limit = 10, "coolguy69" can only claim 10 tokens from the pool.
