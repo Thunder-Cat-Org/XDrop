@@ -19,12 +19,20 @@ CreatePoolEvent = LogEvent(
 
 DepositEvent = LogEvent(
     event="Deposit",
-    params={"pool_id": {"type": str}, "from": {"type": str}, "amount": {"type": str}},
+    params={
+        "pool_id": {"type": str},
+        "from": {"type": str},
+        "amount": {"type": (int, float, decimal)},
+    },
 )
 
 WithdrawEvent = LogEvent(
     event="Withdraw",
-    params={"pool_id": {"type": str}, "to": {"type": str}, "amount": {"type": str}},
+    params={
+        "pool_id": {"type": str},
+        "to": {"type": str},
+        "amount": {"type": (int, float, decimal)},
+    },
 )
 
 SetAllocationEvent = LogEvent(
@@ -38,7 +46,7 @@ ClaimEvent = LogEvent(
         "pool_id": {"type": str},
         "by": {"type": str},
         "to": {"type": str},
-        "amount": {"type": str},
+        "amount": {"type": (int, float, decimal)},
     },
 )
 
@@ -62,19 +70,11 @@ TransferOperator = LogEvent(
 @construct
 def seed():
     metadata["operator"] = ctx.caller
-    metadata["__mutable__"] = True
-    metadata["__upgradeable__"] = True
-
 
 @export
 def create_pool(pool_name: str, token_contract: str, mode: str):
-    """
-    Create a pool owned by caller for a single token contract.
-    pool_id = "<owner>_<pool_name>"
-    mode must be "whitelist" or "open"
-    """
     assert mode == "whitelist" or mode == "open", "Invalid mode!"
-    pool_id = ctx.caller + "_" + pool_name
+    pool_id = pool_name
 
     # Ensure pool doesn't already exist
     assert pool_owner[pool_id] is None, "Pool already exists!"
@@ -89,26 +89,25 @@ def create_pool(pool_name: str, token_contract: str, mode: str):
 
 
 @export
-def deposit_to_pool(pool_id: str, amount: str):
-    assert decimal(amount) > 0, "Amount must be greater than 0!"
-
+def deposit_to_pool(pool_id: str, amount: float):
     owner = pool_owner[pool_id]
-    assert owner is not None, "Pool not found!"
-    assert owner == ctx.caller, "Only pool owner!"
+    assert owner is not None, f"Pool not found: {pool_id}"
 
-    token_contract = pool_token[pool_id]
-    assert token_contract is not None, "Pool token not set!"
+    # Get token contract
+    token_contract_name = pool_token[pool_id]
+    assert token_contract_name is not None, "Pool token not set!"
 
-    token = I(token_contract)
-    # token.transfer_from expects amount
-    token.transfer_from(amount=amount, to=ctx.this, main_account=ctx.caller)
+    token_contract = I.import_module(token_contract_name)
 
-    pool_balance[pool_id] = pool_balance[pool_id] + amount
-    deposits[(ctx.caller, token_contract)] = (
-        deposits[(ctx.caller, token_contract)] + amount
-    )
+    # Transfer tokens from caller to this contract
+    token_contract.transfer_from(amount=amount, to=ctx.this, main_account=ctx.caller)
+
+    # Update pool state
+    pool_balance[pool_id] += amount
+    deposits[ctx.caller, token_contract_name] += amount
 
     DepositEvent({"pool_id": pool_id, "from": ctx.caller, "amount": amount})
+
     return {"deposited": amount, "pool_balance": pool_balance[pool_id]}
 
 
@@ -123,9 +122,6 @@ def set_allocation(pool_id: str, allocations: list):
 
     for allocation in allocations:
         amt = allocation["amount"]
-
-        assert amt > 0, "Amount must be greater than 0!"
-        assert amt >= 0, "Allocation must be >= 0"
 
         addr = allocation["address"]
         allocated[(pool_id, addr)] = amt
@@ -142,12 +138,12 @@ def get_allocation(pool_id: str, address: str):
 
 
 @export
-def set_open_pool_limit(pool_id: str, limit: str):
+def set_open_pool_limit(pool_id: str, limit: float):
     owner = pool_owner[pool_id]
     assert owner is not None, "Pool not found!"
     assert owner == ctx.caller, "Only pool owner!"
 
-    assert decimal(limit) > 0, "Limit must be > 0"
+    assert limit > 0, "Limit must be > 0"
 
     open_pool_limit[pool_id] = limit
     return {"pool_id": pool_id, "limit": limit}
@@ -216,8 +212,8 @@ def get_pool_balance(pool_id: str):
 
 
 @export
-def claim(pool_id: str, amount: str, to: str):
-    assert decimal(amount) > 0.0, "Amount must be greater than 0!"
+def claim(pool_id: str, amount: float, to: str):
+    assert amount > 0.0, "Amount must be greater than 0!"
 
     owner = pool_owner[pool_id]
     assert owner is not None, "Pool not found!"
@@ -244,7 +240,7 @@ def claim(pool_id: str, amount: str, to: str):
     token_contract = pool_token[pool_id]
     assert token_contract is not None, "Pool token not set!"
 
-    token = I(token_contract)
+    token = I.import_module(token_contract)
     token.transfer(amount=amount, to=to)
 
     claimed[(pool_id, ctx.caller)] = already + amount
@@ -260,7 +256,7 @@ def claim(pool_id: str, amount: str, to: str):
 
 
 @export
-def withdraw_from_pool(pool_id: str, amount: str):
+def withdraw_from_pool(pool_id: str, amount: float):
     assert decimal(amount) > 0.0, "Amount must be greater than 0!"
 
     owner = pool_owner[pool_id]
@@ -271,8 +267,8 @@ def withdraw_from_pool(pool_id: str, amount: str):
     assert rem >= amount, "Insufficient pool balance!"
 
     token_contract = pool_token[pool_id]
-    token = I(token_contract)
 
+    token = I.import_module(token_contract)
     token.transfer(amount=amount, to=ctx.caller)
 
     pool_balance[pool_id] = rem - amount
@@ -332,11 +328,3 @@ def transfer_operator(new_operator: str):
     TransferOperator({"new_operator": new_operator})
     return {"operator": new_operator}
 
-
-@export
-def revoke_mutability():
-    assert ctx.caller == metadata["operator"], "Only operator can lock contract!"
-    metadata["__mutable__"] = False
-    metadata["__upgradeable__"] = False
-    RevokeMutabilityEvent({"by": ctx.caller})
-    return {"status": "Contract is now immutable forever."}
