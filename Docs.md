@@ -65,14 +65,15 @@ open_pool_limit = Hash(default_value=0)
 
 ### Create pool
 
-````python
+```python
 def create_pool(pool_name: str, token_contract: str, mode: str):
-    ```
-````
+```
 
 Pool name is chosen by the pool creator. Pool name must be unique per creator.
 mode: "whitelist" or "open"
-pool_id will be ctx.caller + ":" + pool_name
+pool_id is the pool_name
+
+POOL CREATION FEE OF 10 XIAN APPLIES.
 
 ### Deposit to pool
 
@@ -147,12 +148,11 @@ Get pool balance.
 
 ## Claim
 
-````python
+```python
 def claim(pool_id: str, amount: str, to: str):
-    ```
-````
+```
 
-Claim from pool. Behavior depends on pool_mode: - "whitelist": must have an allocated amount and not exceed allocation - "open": any non-blacklisted address can claim until pool_balance is 0
+Claim from pool. Behavior depends on pool_mode: - "whitelist": must have an allocated amount and not exceed allocation - "open": any non-blacklisted address can claim until pool_balance is 0.
 
 ### Withdraw from pool
 
@@ -198,7 +198,7 @@ Returns
 
 ```json
 {
-  "pool_id": "owner:pool69",
+  "pool_id": "pool",
   "total_allocated": 200,
   "pool_balance": 10,
   "status": "underfunded"

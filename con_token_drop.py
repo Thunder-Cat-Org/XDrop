@@ -12,9 +12,19 @@ open_pool_limit = Hash(default_value=0)
 # blacklist stored as boolean per (pool_id, addr)
 pool_blacklist = Hash(default_value=False)
 
+POOL_CREATION_FEE = 10  # 10 XIAN
+FEE_RECIPIENT = Variable()
+
+CURRENCY = "currency"
+
 CreatePoolEvent = LogEvent(
     event="CreatePool",
-    params={"pool_id": {"type": str}, "owner": {"type": str}, "token": {"type": str}},
+    params={
+        "pool_id": {"type": str},
+        "owner": {"type": str},
+        "token": {"type": str},
+        "fee_paid": {"type": (int, float, decimal)},
+    },
 )
 
 DepositEvent = LogEvent(
@@ -70,6 +80,22 @@ TransferOperator = LogEvent(
 @construct
 def seed():
     metadata["operator"] = ctx.caller
+    FEE_RECIPIENT.set(ctx.caller)
+
+
+@export
+def set_fee_recipient(address: str):
+    assert (
+        ctx.caller == metadata["operator"]
+    ), "Only fee recipient can change recipient!"
+    FEE_RECIPIENT.set(address)
+    return {"fee_recipient": address}
+
+
+@export
+def get_fee_recipient():
+    return FEE_RECIPIENT.get()
+
 
 @export
 def create_pool(pool_name: str, token_contract: str, mode: str):
@@ -79,12 +105,27 @@ def create_pool(pool_name: str, token_contract: str, mode: str):
     # Ensure pool doesn't already exist
     assert pool_owner[pool_id] is None, "Pool already exists!"
 
+    # Charge the pool creation fee
+    fee_recipient = FEE_RECIPIENT.get()
+    currency = I.import_module(CURRENCY)
+    currency.transfer_from(
+        amount=POOL_CREATION_FEE, to=fee_recipient, main_account=ctx.caller
+    )
+
     pool_owner[pool_id] = ctx.caller
     pool_token[pool_id] = token_contract
     pool_mode[pool_id] = mode
     pool_balance[pool_id] = 0.0
 
-    CreatePoolEvent({"pool_id": pool_id, "owner": ctx.caller, "token": token_contract})
+    CreatePoolEvent(
+        {
+            "pool_id": pool_id,
+            "owner": ctx.caller,
+            "token": token_contract,
+            "fee_paid": POOL_CREATION_FEE,
+        }
+    )
+
     return {"pool_id": pool_id, "mode": mode}
 
 
@@ -327,4 +368,3 @@ def transfer_operator(new_operator: str):
     metadata["operator"] = new_operator
     TransferOperator({"new_operator": new_operator})
     return {"operator": new_operator}
-
