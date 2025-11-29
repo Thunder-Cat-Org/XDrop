@@ -197,20 +197,17 @@ def blacklist_addresses(pool_id: str, addresses: list):
     assert owner == ctx.caller, "Only pool owner!"
 
     added = []
-    for addr in addresses:
+    for entry in addresses:
+        addr = entry["address"]
+
         if pool_blacklist[(pool_id, addr)] is False:
             pool_blacklist[(pool_id, addr)] = True
             added.append(addr)
 
-    # build comma-joined string for event
-    joined = ""
-    for i in added:
-        if joined == "":
-            joined = i
-        else:
-            joined = joined + "," + i
+    # build comma-joined string
+    joined = ",".join(added)
 
-    BlacklistEvent({"pool_id": pool_id, "by": ctx.caller, "added": "" + joined})
+    BlacklistEvent({"pool_id": pool_id, "by": ctx.caller, "added": joined})
     return {"added": added}
 
 
@@ -221,19 +218,17 @@ def remove_from_blacklist(pool_id: str, addresses: list):
     assert owner == ctx.caller, "Only pool owner!"
 
     removed = []
-    for addr in addresses:
+    for entry in addresses:
+        addr = entry["address"]
+
         if pool_blacklist[(pool_id, addr)] is True:
             pool_blacklist[(pool_id, addr)] = False
             removed.append(addr)
 
-    joined = ""
-    for i in removed:
-        if joined == "":
-            joined = i
-        else:
-            joined = joined + "," + i
+    joined = ",".join(removed)
 
-    RemoveBlacklistEvent({"pool_id": pool_id, "by": ctx.caller, "removed": "" + joined})
+    RemoveBlacklistEvent({"pool_id": pool_id, "by": ctx.caller, "removed": joined})
+
     return {"removed": removed}
 
 
