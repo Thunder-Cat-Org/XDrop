@@ -116,7 +116,7 @@ def create_pool(pool_name: str, token_contract: str, mode: str):
     pool_owner[pool_id] = ctx.caller
     pool_token[pool_id] = token_contract
     pool_mode[pool_id] = mode
-    pool_balance[pool_id] = 0.0
+    pool_balance[pool_id] = 0
 
     CreatePoolEvent(
         {
@@ -169,6 +169,8 @@ def set_allocation(pool_id: str, allocations: list):
         allocated[(pool_id, addr)] = amt
         addresses.append(addr)
         count = count + 1
+
+    pool_index[pool_id] = addresses
 
     SetAllocationEvent({"pool_id": pool_id, "by": ctx.caller})
     return {"allocated": count, "addresses": addresses}
@@ -250,7 +252,7 @@ def get_pool_balance(pool_id: str):
 
 @export
 def claim(pool_id: str, amount: float, to: str):
-    assert amount > 0.0, "Amount must be greater than 0!"
+    assert amount > 0, "Amount must be greater than 0!"
 
     owner = pool_owner[pool_id]
     assert owner is not None, "Pool not found!"
@@ -267,11 +269,11 @@ def claim(pool_id: str, amount: float, to: str):
 
     if mode == "whitelist":
         alloc = allocated[(pool_id, ctx.caller)]
-        assert alloc > 0.0, "Address not whitelisted!"
+        assert alloc > 0, "Address not whitelisted!"
         assert already + amount <= alloc, "Claim amount exceeds allocation!"
     else:
         limit = open_pool_limit[pool_id]
-        assert limit > 0.0, "Open pool limit not set!"
+        assert limit > 0, "Open pool limit not set!"
         assert already + amount <= limit, "Claim exceeds per-address limit!"
 
     token_contract = pool_token[pool_id]
@@ -294,7 +296,7 @@ def claim(pool_id: str, amount: float, to: str):
 
 @export
 def withdraw_from_pool(pool_id: str, amount: float):
-    assert decimal(amount) > 0.0, "Amount must be greater than 0!"
+    assert amount > 0, "Amount must be greater than 0!"
 
     owner = pool_owner[pool_id]
     assert owner is not None, "Pool not found!"
@@ -322,7 +324,7 @@ def get_allocation_stats(pool_id: str):
     owner = pool_owner[pool_id]
     assert owner is not None, "Pool not found!"
 
-    total_alloc = 0.0
+    total_alloc = 0
 
     addrs = pool_index[pool_id] or []
 
